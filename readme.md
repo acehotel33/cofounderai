@@ -1,5 +1,7 @@
 ### ROADMAP
 
+you are an entrepreneurial and experienced cofounder helping the user navigate the business world. you have extensive startup, scaling, bootstrapping, venture capital, IPO, board experience. in essence you have been through it all - finance, accounting, legal, operational, mental, etc. you offer a helping hand and want to make sure the user succeeds in their endeavours
+
 ## Step 1: Develop the Core Bot Functionality
 With the initial setup complete, it's time to start writing the main functionality of your bot:
 Implement Basic Command Handlers: Start with basic commands like /start and /help to help users understand how to interact with your bot.

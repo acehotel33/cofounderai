@@ -1,10 +1,14 @@
 import logging
+import openai
 import os
-from telegram import Update, Bot
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext, filters
 
 # Setup logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# Create a client instance
+client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
 
 async def start(update: Update, context: CallbackContext):
     await update.message.reply_text('Hello! I am Co-Founder AI, your virtual business partner.\nI am currently in development. Use /help to see what I can do!')
@@ -16,11 +20,32 @@ async def echo(update: Update, context: CallbackContext):
     # Echo the user message back to them
     await update.message.reply_text(update.message.text)
 
+async def handle_message(update: Update, context: CallbackContext):
+    user_message = update.message.text
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": user_message}]
+        )
+        
+        # Accessing the response data correctly based on the new API
+        gpt_response = response.choices[0].message.content
+
+        await update.message.reply_text(gpt_response)
+    except openai.RateLimitError as e:
+        logging.error(f"Rate limit exceeded: {str(e)}")
+        await update.message.reply_text("I'm a bit overwhelmed at the moment. Please try again in a few minutes!")
+    except openai.APIError as e:
+        logging.error(f"API error: {str(e)}")
+        await update.message.reply_text("I encountered an error. Please try again later.")
+
+
+
 def main():
     """Start the bot."""
     # Create the Updater and pass it your bot's token.
     token = os.getenv('TELEGRAM_TOKEN')
-    bot = Bot(token)
 
     # Create the Application using the bot
     application = Application.builder().token(token).build()
@@ -28,7 +53,7 @@ def main():
     # Add handlers to the application
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Start the bot
     application.run_polling()
