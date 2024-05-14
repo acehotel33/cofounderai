@@ -12,6 +12,7 @@ client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
 
 async def start(update: Update, context: CallbackContext):
     await update.message.reply_text('Hello! I am Co-Founder AI, your virtual business partner.\nI am currently in development. Use /help to see what I can do!')
+    context.chat_data['history'] = []  # Initialize conversation history
 
 async def help_command(update: Update, context: CallbackContext):
     await update.message.reply_text('/start - Launch the bot\n/help - Get help and command info')
@@ -21,16 +22,28 @@ async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
 
 async def handle_message(update: Update, context: CallbackContext):
+    chat_id = update.message.chat_id
     user_message = update.message.text
+
+    # Retrieve the current conversation history from the context
+    history = context.chat_data.get('history', [])
+
+    # Append the new user message to the history
+    history.append({"role": "user", "content": user_message})
 
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": user_message}]
+            messages=history
         )
-        
-        # Accessing the response data correctly based on the new API
+
+        # Extract the AI's response and add to history
         gpt_response = response.choices[0].message.content
+        history.append({"role": "assistant", "content": gpt_response})
+
+        # Save updated history back to the context
+        context.chat_data['history'] = history
+
 
         await update.message.reply_text(gpt_response)
     except openai.RateLimitError as e:
