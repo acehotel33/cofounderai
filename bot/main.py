@@ -3,7 +3,8 @@ import openai
 import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext, filters
-from db import save_message, get_conversation_history, summarize_and_archive_messages
+from db import save_message, get_conversation_history, summarize_and_archive_messages, erase_history
+import backoff
 
 
 # Setup logging
@@ -23,6 +24,7 @@ async def echo(update: Update, context: CallbackContext):
     # Echo the user message back to them
     await update.message.reply_text(update.message.text)
 
+@backoff.on_exception(backoff.expo, (openai.APIError, openai.RateLimitError), max_tries=5)
 async def handle_message(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
     user_message = update.message.text
@@ -45,17 +47,32 @@ async def handle_message(update: Update, context: CallbackContext):
         save_message(chat_id, 'assistant', gpt_response)
 
 
+        # Await the archiving operation
         await summarize_and_archive_messages(chat_id)
 
-
-        await update.message.reply_text(gpt_response)
+        # Check if the response is too long and split it if necessary
+        max_length = 4096
+        if len(gpt_response) > max_length:
+            parts = [gpt_response[i:i+max_length] for i in range(0, len(gpt_response), max_length)]
+            for part in parts:
+                await update.message.reply_text(part)
+        else:
+            await update.message.reply_text(gpt_response)
     except openai.RateLimitError as e:
         logging.error(f"Rate limit exceeded: {str(e)}")
         await update.message.reply_text("I'm a bit overwhelmed at the moment. Please try again in a few minutes!")
     except openai.APIError as e:
         logging.error(f"API error: {str(e)}")
         await update.message.reply_text("I encountered an error. Please try again later.")
+    except Exception as e:
+        logging.error(f"Unhandled exception: {str(e)}")
+        await update.message.reply_text("An error occurred. Please try again later.")
 
+
+def erase_command(update: Update, context: CallbackContext):
+    chat_id = update.message.chat_id
+    erase_history(chat_id)  # Call the function to erase history
+    update.message.reply_text("Your chat history has been successfully erased.")
 
 
 def main():
@@ -69,6 +86,7 @@ def main():
     # Add handlers to the application
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("erase", erase_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     # Start the bot
