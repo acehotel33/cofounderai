@@ -65,15 +65,15 @@ def get_conversation_history(chat_id):
 async def summarize_and_archive_messages(chat_id):
     """Retrieve, summarize, and archive old messages asynchronously using OpenAI."""
     conversation = conversations.find_one({"chat_id": chat_id})
-    if conversation and len(conversation['messages']) > 10:
+    if conversation and len(conversation['messages']) > 25:
         # Retrieve messages to be summarized and any existing summary.
-        messages_to_summarize = conversation['messages'][:10]
+        messages_to_summarize = conversation['messages'][:25]
         existing_summary = conversation['archived_messages'][0] if 'archived_messages' in conversation and conversation['archived_messages'] else ""
 
         # Combine existing summary with new messages for a comprehensive summary.
         context = existing_summary + "\n" + "\n".join([msg['content'] for msg in messages_to_summarize])
 
-        messages_formatted = [{"role": "system", "content": "You are an archiving bot tasked with summarizing, condensing, and archiving conversation history. Please make sure to compactly pack as much contextual info as possible into your summary (you decide on the best format for this) so that your counterparty AI bot can later reference the 'memory' you create in order to always be up-to-date on the context of the whole conversation. The conversation will be predominantly based around business and ventures so please help your AI bot pal in retaining this memory. Most importantly, make sure you summarize the content and not continue the conversation."}] + \
+        messages_formatted = [{"role": "system", "content": "You are an archiving bot tasked with summarizing, condensing, and archiving conversation history. Please make sure to compactly pack as much contextual info as possible into your summary (using bullet points and dictionaries) so that your counterparty AI bot can later reference the 'memory' you create in order to always be up-to-date on the context of the whole conversation. The conversation will be predominantly based around business and ventures so please help your AI bot pal in retaining this memory. Most importantly, make sure you summarize the content and not continue the conversation."}] + \
                              [{"role": "user", "content": context}]
 
         try:
@@ -90,7 +90,7 @@ async def summarize_and_archive_messages(chat_id):
                 {
                     "$set": {
                         "archived_messages": [updated_summary],
-                        "messages": conversation['messages'][10:]  # retain only the unsummarized messages
+                        "messages": conversation['messages'][25:]  # retain only the unsummarized messages
                     }
                 }
             )
