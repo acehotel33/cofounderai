@@ -7,6 +7,12 @@ from db import save_message, get_conversation_history, summarize_and_archive_mes
 import backoff
 import re
 
+# Setup logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+# Create a client instance
+openai_client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
+
 SYSTEM_PROMPT = {
         "role": "system", 
          "content": (
@@ -38,12 +44,8 @@ SYSTEM_PROMPT = {
             )
     }
 
-# Setup logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Create a client instance
-openai_client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
-
+# # State definitions for conversation handler
 CONFIRM_ERASE = 1  # State definition for ConversationHandler
 
 async def start(update: Update, context: CallbackContext):
@@ -71,6 +73,7 @@ async def help_command(update: Update, context: CallbackContext):
     await update.message.reply_text(help_text)
 
 async def erase_command(update: Update, context: CallbackContext):
+    logging.info(f"Erase command triggered by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
     keyboard = [
         [InlineKeyboardButton("Yes, erase all history", callback_data='confirm_erase')],
         [InlineKeyboardButton("No, keep my history", callback_data='cancel_erase')]
@@ -83,11 +86,19 @@ async def erase_confirmed(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.answer()
     chat_id = query.message.chat_id
-    erase_history(chat_id)  # Call the function to erase history
-    await query.edit_message_text(text="Your chat history has been successfully erased.")
+    logging.info(f"Erase confirmed handler triggered for chat_id: {chat_id}")
+    try:
+        await erase_history(chat_id)
+        await query.edit_message_text(text="Your chat history has been successfully erased.")
+    except Exception as e:
+        logging.error(f"Error during erase history: {e}")
+        await query.edit_message_text(text=f"Failed to erase chat history. Error: {e}")
     return ConversationHandler.END
 
+
+
 async def erase_cancelled(update: Update, context: CallbackContext):
+    logging.info(f"Erase cancelled for chat_id: {update.callback_query.message.chat_id}")
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(text="Your chat history has not been erased.")
@@ -164,9 +175,7 @@ def error_handler(update: Update, context: CallbackContext):
 
 def main():
     """Start the bot."""
-    # Create the Updater and pass it your bot's token.
     token = os.getenv('TELEGRAM_TOKEN')
-    # Create the Application using the bot
     application = Application.builder().token(token).build()
 
     erase_handler = ConversationHandler(
@@ -180,15 +189,14 @@ def main():
         fallbacks=[CommandHandler('start', start)]
     )
 
-
-    # Add handlers to the application
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(erase_handler)  # Use the ConversationHandler for /erase
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Start the bot
     application.run_polling()
+
+
 
 if __name__ == '__main__':
     main()

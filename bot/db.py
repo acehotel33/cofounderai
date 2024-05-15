@@ -6,6 +6,9 @@ import asyncio
 from openai import AsyncOpenAI 
 from datetime import datetime, timezone
 import logging
+from motor.motor_asyncio import AsyncIOMotorClient
+
+
 
 # Configure logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -98,11 +101,13 @@ async def summarize_and_archive_messages(chat_id):
             logging.error(f"OpenAI API error: {str(e)}")
 
 
-def erase_history(chat_id):
-    """Erase the chat history by moving all messages to an erased history archive."""
+async def erase_history(chat_id):
+    """Erase the chat history by moving all messages to an erased history archive asynchronously."""
     try:
-        # Fetch the current state of the conversation
-        conversation = conversations.find_one({"chat_id": chat_id})
+        logging.info(f"Attempting to fetch conversation for chat_id: {chat_id}")
+        # Asynchronously fetch the current state of the conversation
+        conversation = await conversations.find_one({"chat_id": chat_id})
+        logging.info(f"Conversation fetched for chat_id: {chat_id}, data: {conversation}")
 
         # Prepare the content to be moved to the erased messages array
         if conversation:
@@ -116,8 +121,9 @@ def erase_history(chat_id):
                 "archived_messages": existing_archived
             }
 
-            # Update the conversation document
-            update_result = conversations.update_one(
+            # Asynchronously update the conversation document
+            logging.info(f"Updating database to erase history for chat_id: {chat_id}")
+            update_result = await conversations.update_one(
                 {"chat_id": chat_id},
                 {
                     "$push": {"erased_messages": all_content},
@@ -130,7 +136,5 @@ def erase_history(chat_id):
             else:
                 logging.info("Successfully erased history for chat_id: {}".format(chat_id))
 
-    except PyMongoError as e:
+    except Exception as e:  # Using a broader exception to catch all potential async errors
         logging.error("Failed to erase history for chat_id: {}. Error: {}".format(chat_id, str(e)))
-
-
