@@ -7,6 +7,7 @@ from db import save_message, get_conversation_history, summarize_and_archive_mes
 import backoff
 import re
 import time
+import asyncio
 
 
 # Setup logging
@@ -109,68 +110,77 @@ async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
 
 
-@backoff.on_exception(backoff.expo, (openai.APIError, openai.RateLimitError), max_tries=5)
-async def handle_message(update: Update, context: CallbackContext):
-    chat_id = update.message.chat_id
-    user_message = update.message.text.strip()
+# Dictionary to store message buffers and timers for each chat
+message_buffers = {}
 
-    # Ignore empty messages
-    if not user_message:
-        return
-    
-    # Save the incoming message
-    save_message(chat_id, 'user', user_message)
+async def process_messages(chat_id, context):
+    # Combine all messages in the buffer
+    full_message = ' '.join(message_buffers[chat_id]['buffer'])
+    # Clear the buffer for future messages
+    message_buffers[chat_id]['buffer'].clear()
 
-    # Retrieve the conversation history for context
-    history = [SYSTEM_PROMPT] + get_conversation_history(chat_id)
+    # Existing logic, now using full_message as the input
+    user_messages = [{'role': 'user', 'content': full_message}]
+    history = [SYSTEM_PROMPT] + get_conversation_history(chat_id) + user_messages
 
     try:
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=history
         )
-
-        # Extract the AI's response and add to history
         gpt_response = response.choices[0].message.content
         save_message(chat_id, 'assistant', gpt_response)
 
-
-        # Await the archiving operation
         await summarize_and_archive_messages(chat_id)
 
-        # Regex to split at questions, new paragraphs, and post-bullet points followed by non-bullet text
         parts = re.split(r'(?<=\?)\s+|(?<=\n)\s*\n|\n(?=[^•\n]*$)', gpt_response)
-
-        # Function to send long text in chunks
-        async def send_in_chunks(text, chat_id):
-            # Ensure the text is stripped of leading/trailing whitespace
-            text = text.strip()
-            if text:
-                for i in range(0, len(text), 4096):
-                    await update.message.reply_text(text[i:i+4096])
-
-        # Iterate through the parts and send them
         for part in parts:
-            if part.strip():  # Avoid sending empty messages
-                await send_in_chunks(part, chat_id)
+            if part.strip():
+                await context.bot.send_message(chat_id=chat_id, text=part)
 
-    except openai.RateLimitError as e:
-        logging.error(f"Rate limit exceeded: {str(e)}")
-        await update.message.reply_text("I'm a bit overwhelmed at the moment. Please try again in a few minutes!")
-    except openai.APIError as e:
-        logging.error(f"API error: {str(e)}")
-        await update.message.reply_text("I encountered an error. Please try again shortly!")
     except Exception as e:
-        logging.error(f"Unhandled exception: {str(e)}")
-        await update.message.reply_text("An error occurred. Please try again later.")
+        logging.error("Failed to process messages: %s", str(e))
+        await context.bot.send_message(chat_id=chat_id, text="An error occurred. Please try again later.")
+
+def reset_timer(chat_id, context):
+    if chat_id in message_buffers and message_buffers[chat_id]['timer'] is not None:
+        message_buffers[chat_id]['timer'].cancel()
+    message_buffers[chat_id]['timer'] = asyncio.get_event_loop().call_later(
+        1,  # delay in seconds
+        lambda: asyncio.create_task(process_messages(chat_id, context))
+    )
+
+
+@backoff.on_exception(backoff.expo, (openai.APIError, openai.RateLimitError), max_tries=5)
+async def handle_message(update: Update, context: CallbackContext):
+    chat_id = update.effective_chat.id
+    text = update.message.text.strip()
+
+    if not text:
+        return  # Ignore empty messages
+
+    if chat_id not in message_buffers:
+        message_buffers[chat_id] = {'buffer': [], 'timer': None}
+
+    # Append new message to buffer
+    message_buffers[chat_id]['buffer'].append(text)
+
+    # Reset or start the timer
+    reset_timer(chat_id, context)
+
+    # Save the incoming message as usual
+    save_message(chat_id, 'user', text)
 
 
 
-def error_handler(update, context):
+async def error_handler(update, context):
     """Log the error and send a telegram message to notify the developer."""
     logging.error('Update "%s" caused error "%s"', update, context.error)
-    # Notify the user (optionally)
-    context.bot.send_message(chat_id=update.effective_chat.id, text="An error occurred, please try again later.")
+    try:
+        # Notify the user
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="An error occurred, please try again later.")
+    except Exception as e:
+        logging.error("Failed to send error message: %s", str(e))
 
 
 
