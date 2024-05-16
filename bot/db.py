@@ -101,38 +101,23 @@ async def summarize_and_archive_messages(chat_id):
             logging.error(f"OpenAI API error: {str(e)}")
 
 
-async def erase_history(chat_id):
-    """Erase the chat history by moving all messages to an erased history archive asynchronously."""
+def erase_history(chat_id):
+    """Erase the chat history by moving all messages to an erased history archive."""
     try:
-        logging.info(f"Attempting to fetch conversation for chat_id: {chat_id}")
-        # Asynchronously fetch the current state of the conversation
-        conversation = await conversations.find_one({"chat_id": chat_id})
-        logging.info(f"Conversation fetched for chat_id: {chat_id}, data: {conversation}")
-
-        # Handle the case where there is no existing conversation
-        if not conversation:
-            logging.info(f"No conversation found for chat_id: {chat_id}. No action taken.")
-            return  # Exit as there's nothing to erase
-
-        existing_messages = conversation.get('messages', [])
-        existing_archived = conversation.get('archived_messages', [])
-
-        # Check if there are any messages or archived messages to process
-        if not existing_messages and not existing_archived:
-            logging.info(f"No messages or archived messages to erase for chat_id: {chat_id}. No action taken.")
-            return  # Exit if there's nothing to erase
-
-        # Compile all current messages and archives into a single entry
-        all_content = {
-            "archived_at": datetime.now(timezone.utc).isoformat(),
-            "messages": existing_messages,
-            "archived_messages": existing_archived
-        }
-
-        # Only update the database if there is content to archive
-        if existing_messages or existing_archived:
-            logging.info(f"Updating database to erase history for chat_id: {chat_id}")
-            update_result = await conversations.update_one(
+        # Fetch the current state of the conversation
+        conversation = conversations.find_one({"chat_id": chat_id})
+        # Prepare the content to be moved to the erased messages array
+        if conversation:
+            existing_messages = conversation.get('messages', [])
+            existing_archived = conversation.get('archived_messages', [])
+            # Compile all current messages and archives into a single entry
+            all_content = {
+                "archived_at": datetime.now(timezone.utc).isoformat(),
+                "messages": existing_messages,
+                "archived_messages": existing_archived
+            }
+            # Update the conversation document
+            update_result = conversations.update_one(
                 {"chat_id": chat_id},
                 {
                     "$push": {"erased_messages": all_content},
@@ -143,10 +128,5 @@ async def erase_history(chat_id):
                 logging.info("No changes made to the database for chat_id: {}".format(chat_id))
             else:
                 logging.info("Successfully erased history for chat_id: {}".format(chat_id))
-        else:
-            logging.info("No messages or archives to process for chat_id: {}".format(chat_id))
-
-    except Exception as e:  # Using a broader exception to catch all potential async errors
+    except PyMongoError as e:
         logging.error("Failed to erase history for chat_id: {}. Error: {}".format(chat_id, str(e)))
-        raise  # Optional: re-raise the exception if you want to handle it further up the call stack
-

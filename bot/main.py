@@ -47,17 +47,14 @@ SYSTEM_PROMPT = {
     }
 
 
-# # State definitions for conversation handler
-CONFIRM_ERASE = 1  # State definition for ConversationHandler
-
 # Add a dictionary to store the last command time
 last_command_time = {}
 
 async def start(update: Update, context: CallbackContext):
     logging.info(f"Start command called by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
 
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
+    # user_id = update.effective_user.id
+    # chat_id = update.effective_chat.id
     # current_time = time.time()
 
     # # Debounce logic: check if the last command was issued recently
@@ -100,46 +97,11 @@ async def help_command(update: Update, context: CallbackContext):
     await update.message.reply_text(help_text)
 
 
-
-# async def erase_command(update: Update, context: CallbackContext):
-#     # Logging to confirm function entry
-#     logging.info(f"Erase command triggered by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
-#     keyboard = [
-#         [InlineKeyboardButton("Yes, erase all history", callback_data='confirm_erase')],
-#         [InlineKeyboardButton("No, keep my history", callback_data='cancel_erase')]
-#     ]
-
-#     reply_markup = InlineKeyboardMarkup(keyboard)
-#     await update.message.reply_text('Are you sure you want to erase all your chat history? This action cannot be undone 😢', reply_markup=reply_markup)
-#     return CONFIRM_ERASE
-
-# async def erase_confirmed(update: Update, context: CallbackContext):
-#     query = update.callback_query
-#     await query.answer()
-#     chat_id = query.message.chat_id
-
-#     # Logging to confirm function entry and chat_id
-#     logging.info(f"Erase confirmed for chat_id: {chat_id}")
-
-#     try:
-#         logging.info(f"Attempting to erase history for chat_id: {chat_id}")
-#         await erase_history(chat_id)
-#         logging.info(f"History successfully erased for chat_id: {chat_id}")
-#         await query.edit_message_text(text="Your chat history has been successfully erased.")
-#     except Exception as e:
-#         logging.error(f"Error during erase history: {e}")
-#         await query.edit_message_text(text=f"Failed to erase chat history. Error: {e}")
-#     return ConversationHandler.END
-
-
-# async def erase_cancelled(update: Update, context: CallbackContext):
-#     logging.info("Erase cancelled function triggered")
-#     query = update.callback_query
-#     logging.info(f"Erase cancelled for chat_id: {update.callback_query.message.chat_id}")
-#     await query.answer()
-#     await query.edit_message_text(text="Your chat history has not been erased.")
-#     return ConversationHandler.END
-
+async def erase(update: Update, context: CallbackContext):
+    chat_id = update.effective_chat.id
+    logging.info(f"Erase command called by user: {update.effective_user.id} in chat: {chat_id}")
+    erase_history(chat_id)  # Directly call the erase_history function
+    await update.message.reply_text("All chat history has been erased.")
 
 
 async def echo(update: Update, context: CallbackContext):
@@ -204,13 +166,12 @@ async def handle_message(update: Update, context: CallbackContext):
 
 
 
-def error_handler(update: Update, context: CallbackContext):
+def error_handler(update, context):
     """Log the error and send a telegram message to notify the developer."""
-    logging.error(msg="Exception while handling an update:", exc_info=context.error)
-    
-    # Optionally, inform the user that an error occurred.
-    if update.effective_message:
-        update.effective_message.reply_text('An unexpected error occurred. Please try again shortly.')
+    logging.error('Update "%s" caused error "%s"', update, context.error)
+    # Notify the user (optionally)
+    context.bot.send_message(chat_id=update.effective_chat.id, text="An error occurred, please try again later.")
+
 
 
 async def fallback_message(update: Update, context: CallbackContext):
@@ -225,26 +186,13 @@ def main():
     token = os.getenv('TELEGRAM_TOKEN')
     application = Application.builder().token(token).build()
 
-    # logging.info("Adding erase handlers")
-    # erase_handler = ConversationHandler(
-    #     entry_points=[CommandHandler('erase', erase_command)],
-    #     states={
-    #         CONFIRM_ERASE: [
-    #             CallbackQueryHandler(erase_confirmed, pattern='^confirm_erase$'),
-    #             CallbackQueryHandler(erase_cancelled, pattern='^cancel_erase$')
-    #         ]
-    #     },
-    #     fallbacks=[MessageHandler(filters.ALL, fallback_message)]
-    # )
-
-
-
     logging.info("Adding application handlers")
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CommandHandler("start", start))  # Assuming start is defined elsewhere
+    application.add_handler(CommandHandler("help", help_command))  # Assuming help_command is defined elsewhere
+    application.add_handler(CommandHandler("erase", erase))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))  # Assuming handle_message is defined elsewhere
 
+    application.add_error_handler(error_handler)
     logging.info("Starting polling")
     application.run_polling()
 
