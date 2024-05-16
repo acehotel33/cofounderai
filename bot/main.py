@@ -54,16 +54,18 @@ last_command_time = {}
 async def start(update: Update, context: CallbackContext):
     logging.info(f"Start command called by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
 
-    # user_id = update.effective_user.id
-    # chat_id = update.effective_chat.id
-    # current_time = time.time()
+    user_id = update.effective_user.id
+    current_time = time.time()
 
-    # # Debounce logic: check if the last command was issued recently
-    # if user_id in last_command_time and current_time - last_command_time[user_id] < 2:
-    #     logging.info(f"Debounced start command for user: {user_id}, in chat id: {chat_id}")
-    #     return
+    # Check if the command was issued recently
+    if user_id in last_command_time:
+        elapsed_time = current_time - last_command_time[user_id]
+        if elapsed_time < 6:  # 6 seconds debounce period
+            logging.info(f"Debounced start command for user: {user_id}")
+            return  # Skip processing if the command was recently executed
 
-    # last_command_time[user_id] = current_time
+    # Update the last command time
+    last_command_time[user_id] = current_time
 
     if 'history' not in context.chat_data:
         logging.info("Initializing conversation history for chat")
@@ -76,10 +78,17 @@ async def start(update: Update, context: CallbackContext):
         "Hello! I am Co-Founder AI, your 24/7 virtual business partner.\n"
         "\n"
         "I can be your advisor for anything that can help grow your business: strategy, marketing, consulting, finance..\n"
-        "Tell me about your business or let's brainstorm a new one together!\n"
         "\n"
         "Hit or type /help to see what I can do!"
         )
+    
+    # Wait for 3 seconds before asking for more details
+    await asyncio.sleep(3)
+
+    # Follow-up message to ask for user's name and business
+    await update.message.reply_text(
+        "Could you please tell me your name and a bit about your business?"
+    )
 
 async def help_command(update: Update, context: CallbackContext):
     logging.info(f"Help command triggered by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
@@ -139,6 +148,8 @@ async def process_messages(chat_id, context):
                 # Use HTML formatting for bold
                 formatted_part = format_bold_text(part)
                 await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
+                # Delay for 2 seconds before sending the next part
+                await asyncio.sleep(2)
 
     except Exception as e:
         logging.error("Failed to process messages: %s", str(e))
