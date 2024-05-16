@@ -136,11 +136,26 @@ async def process_messages(chat_id, context):
         parts = re.split(r'(?<=\?)\s+|(?<=\n)\s*\n|\n(?=[^•\n]*$)', gpt_response)
         for part in parts:
             if part.strip():
-                await context.bot.send_message(chat_id=chat_id, text=part)
+                # Use HTML formatting for bold
+                formatted_part = format_bold_text(part)
+                await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
 
     except Exception as e:
         logging.error("Failed to process messages: %s", str(e))
         await context.bot.send_message(chat_id=chat_id, text="An error occurred. Please try again later.")
+
+
+def format_bold_text(text):
+    """Toggle between adding opening and closing bold tags for each occurrence of '**' in the text."""
+    toggle = True  # Start by opening a tag
+    while '**' in text:
+        if toggle:
+            text = text.replace('**', '<b>', 1)
+        else:
+            text = text.replace('**', '</b>', 1)
+        toggle = not toggle
+    return text
+
 
 def reset_timer(chat_id, context):
     if chat_id in message_buffers and message_buffers[chat_id]['timer'] is not None:
