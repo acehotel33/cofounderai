@@ -76,7 +76,19 @@ async def summarize_and_archive_messages(chat_id):
         # Combine existing summary with new messages for a comprehensive summary.
         context = existing_summary + "\n" + "\n".join([msg['content'] for msg in messages_to_summarize])
 
-        messages_formatted = [{"role": "system", "content": "You are an archiving bot tasked with condensing, and archiving conversation history. Please make sure to compactly pack as much contextual info as possible into your allowed maximum character length (using bullet points and dictionaries or any other efficient archival system) so that your counterparty AI bot can later reference the 'memory' you create in order to always be up-to-date on all the prior context of the whole conversation. The conversation will be predominantly based around business and ventures so please help your AI bot pal in retaining this memory. Most importantly, make sure you do NOT continue the conversation but only perform the archival action."}] + \
+        messages_formatted = [{"role": "system", "content": (
+                        "You are an archiving bot tasked with condensing, and archiving conversation history.\n\n"
+                        
+                        "Please make sure to compactly pack as much contextual info as possible into your allowed maximum character length:\n"
+                        "- Use bullet points\n"
+                        "- Use dictionaries or any other efficient archival system\n"
+                        
+                        "Your goal is for your counterparty AI bot to later reference the 'memory' you create in order to always be up-to-date on all the prior context of the whole conversation.\n\n"
+                        
+                        "The conversation will be predominantly based around business and ventures so please help your AI bot pal in retaining this memory.\n\n"
+                        
+                        "Most importantly, make sure you do NOT continue the conversation but only perform the archival action."
+                                )}] + \
                              [{"role": "user", "content": context}]
 
         try:
