@@ -1,6 +1,7 @@
 import logging
 import openai
 import os
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext, ConversationHandler, CallbackQueryHandler, filters
 from db import save_message, get_conversation_history, summarize_and_archive_messages, erase_history
@@ -245,6 +246,36 @@ async def fallback_message(update: Update, context: CallbackContext):
     # Sending a generic error message to the user
     await update.message.reply_text("Something went wrong while trying to process your request. Please try again.")
     return ConversationHandler.END
+
+
+def lambda_handler(event, context):
+    """AWS Lambda handler function."""
+    logging.info(f"Received event: {json.dumps(event)}")
+
+    application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("erase", erase))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_error_handler(error_handler)
+
+    # Check if 'body' exists in event
+    if 'body' not in event:
+        return {
+            'statusCode': 400,
+            'body': json.dumps('Bad Request: Missing body in event')
+        }
+
+    # Create an update object based on the incoming request
+    update = Update.de_json(json.loads(event['body']), application.bot)
+    application.process_update(update)
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps('OK')
+    }
+
+
 
 
 def main():
