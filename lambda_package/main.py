@@ -1,54 +1,47 @@
+import logging
+import openai
 import os
 import json
-import logging
-from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Initialize the OpenAI client
+openai_client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
 
 def lambda_handler(event, context):
-    logging.info("Starting MongoDB connectivity test")
-    try:
-        # MongoDB connection string from environment variable
-        mongo_uri = os.getenv('COFOUNDERAI_MONGO_URI')
-        
-        # Create a MongoDB client with extended timeout settings
-        client = MongoClient(mongo_uri, serverSelectionTimeoutMS=30000, connectTimeoutMS=30000)
+    """AWS Lambda handler function for testing OpenAI connectivity."""
+    logging.info("Received event: %s", json.dumps(event))
 
-        # Test the connection by listing the databases
-        databases = client.list_database_names()
-        
-        # If successful, return the list of databases
-        logging.info("MongoDB connectivity check passed")
+    try:
+        # Test OpenAI connection by making a simple API call
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{
+                "role": "system", 
+                "content": "say Hello World!",
+            }]
+        )
+        logging.info("OpenAI response: %s", response)
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'MongoDB connectivity check passed',
-                'databases': databases
-            })
-        }
-    except ConnectionFailure as e:
-        # If there's a connection failure, return the error message
-        logging.error(f"Connection to MongoDB failed: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'message': 'MongoDB connectivity check failed',
-                'error': str(e)
+                'message': 'OpenAI connectivity check passed',
+                'response': response.choices[0].message.content
             })
         }
     except Exception as e:
-        # If there's any other error, return the error message
-        logging.error(f"An error occurred: {str(e)}")
+        logging.error("OpenAI connectivity check failed: %s", str(e))
         return {
             'statusCode': 500,
             'body': json.dumps({
-                'message': 'An unexpected error occurred',
+                'message': 'OpenAI connectivity check failed',
                 'error': str(e)
             })
         }
 
-if __name__ == '__main__':
-    # For local testing, set the MONGO_URI environment variable
-    print(lambda_handler(None, None))
+if __name__ == "__main__":
+    # For local testing
+    event = {}
+    context = None
+    print(lambda_handler(event, context))

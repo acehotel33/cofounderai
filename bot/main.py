@@ -10,8 +10,6 @@ import re
 import time
 import asyncio
 
-# changing initialization to synchronous
-
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
