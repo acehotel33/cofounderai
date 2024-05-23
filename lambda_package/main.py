@@ -10,12 +10,64 @@ import re
 import time
 import asyncio
 
+# changing initialization to synchronous
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-# Create a client instance
-openai_client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
+# Initialize the application outside the handler to avoid re-initializing on every request
+application = None
+
+def initialize_application():
+    """Initialize the application and return it."""
+    global application
+    if application is None:
+        logging.info("Initializing application")
+        application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+        application.add_error_handler(error_handler)
+
+        # Initialize the application synchronously
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(application.initialize())
+        logging.info("Application initialized")
+    return application
+
+def lambda_handler(event, context):
+    """AWS Lambda handler function."""
+    logging.info("Received event: %s", json.dumps(event))
+
+    if 'body' not in event:
+        logging.error("Missing body in event")
+        return {
+            'statusCode': 400,
+            'body': json.dumps('Bad Request: Missing body in event')
+        }
+
+    update = Update.de_json(json.loads(event['body']), None)
+
+    def run():
+        logging.info("Running function")
+        app = initialize_application()
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(handle_update(app, update))
+
+    run()
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps('OK')
+    }
+
+async def handle_update(application, update):
+    """Handle the update in an async context."""
+    logging.info("Handling update")
+    await application.process_update(update)
+    logging.info("Update handled")
+
+
 
 SYSTEM_PROMPT = {
     "role": "system", 
@@ -109,7 +161,7 @@ async def start(update: Update, context: CallbackContext):
         "I can be your advisor for anything that can help grow your business: strategy, marketing, consulting, finance..\n"
         "\n"
         "Hit or type /help to see what I can do!"
-        )
+    )
     
     # Wait for 3 seconds before asking for more details
     await asyncio.sleep(3)
@@ -118,6 +170,7 @@ async def start(update: Update, context: CallbackContext):
     await update.message.reply_text(
         "Could you please tell me your name and a bit about your business?"
     )
+
 
 async def help_command(update: Update, context: CallbackContext):
     logging.info(f"Help command triggered by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
@@ -229,7 +282,6 @@ async def handle_message(update: Update, context: CallbackContext):
     save_message(chat_id, 'user', text)
 
 
-
 async def error_handler(update, context):
     """Log the error and send a telegram message to notify the developer."""
     logging.error('Update "%s" caused error "%s"', update, context.error)
@@ -248,48 +300,23 @@ async def fallback_message(update: Update, context: CallbackContext):
     return ConversationHandler.END
 
 
-def lambda_handler(event, context):
-    """AWS Lambda handler function."""
-    application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("erase", erase))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_error_handler(error_handler)
-
-    # Check if 'body' exists in event
-    if 'body' not in event:
-        return {
-            'statusCode': 400,
-            'body': json.dumps('Bad Request: Missing body in event')
-        }
-
-    # Create an update object based on the incoming request
-    update = Update.de_json(json.loads(event['body']), application.bot)
-    application.process_update(update)
-
-    return {
-        'statusCode': 200,
-        'body': json.dumps('OK')
-    }
-
-
-
 
 def main():
     """Start the bot."""
     token = os.getenv('TELEGRAM_TOKEN')
-    application = Application.builder().token(token).build()
+    app = Application.builder().token(token).build()
 
     logging.info("Adding application handlers")
-    application.add_handler(CommandHandler("start", start))  # Assuming start is defined elsewhere
-    application.add_handler(CommandHandler("help", help_command))  # Assuming help_command is defined elsewhere
-    application.add_handler(CommandHandler("erase", erase))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))  # Assuming handle_message is defined elsewhere
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("erase", erase))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    application.add_error_handler(error_handler)
+    app.add_error_handler(error_handler)
     logging.info("Starting polling")
-    application.run_polling()
+    app.run_polling()
+
+
 
 
 if __name__ == '__main__':

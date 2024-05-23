@@ -1,3 +1,6 @@
 venv/
+myenv/
 .vscode/
 *.pyc
+.env
+bot/__pycache__

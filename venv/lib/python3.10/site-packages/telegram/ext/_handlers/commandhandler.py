@@ -152,7 +152,6 @@ class CommandHandler(BaseHandler[Update, CCT]):
         Returns:
             :obj:`bool`: Whether the args are valid for this handler.
         """
-        # pylint: disable=too-many-boolean-expressions
         return bool(
             (self.has_args is None)
             or (self.has_args is True and args)
@@ -205,8 +204,8 @@ class CommandHandler(BaseHandler[Update, CCT]):
     def collect_additional_context(
         self,
         context: CCT,
-        update: Update,
-        application: "Application[Any, CCT, Any, Any, Any, Any]",
+        update: Update,  # noqa: ARG002
+        application: "Application[Any, CCT, Any, Any, Any, Any]",  # noqa: ARG002
         check_result: Optional[Union[bool, Tuple[List[str], Optional[bool]]]],
     ) -> None:
         """Add text after the command to :attr:`CallbackContext.args` as list, split on single

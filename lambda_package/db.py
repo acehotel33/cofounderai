@@ -1,4 +1,4 @@
-from pymongo import MongoClient, UpdateOne
+from pymongo import MongoClient, UpdateOne, ssl_support
 from pymongo.errors import PyMongoError
 import openai
 import os
@@ -17,7 +17,11 @@ openai_client = AsyncOpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
 
 # Initialize MongoDB client
 MONGO_URI = os.getenv('COFOUNDERAI_MONGO_URI')
-mongo_client = MongoClient(MONGO_URI)
+mongo_client = MongoClient(
+    MONGO_URI,
+    tls=True,
+    tlsAllowInvalidCertificates=True
+)
 db = mongo_client.ChatHistory  
 conversations = db.conversations  # Assume a collection named 'conversations'
 

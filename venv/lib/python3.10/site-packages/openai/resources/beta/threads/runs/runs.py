@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 import typing_extensions
 from typing import Union, Iterable, Optional, overload
 from functools import partial
@@ -86,6 +85,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -163,8 +164,9 @@ class Runs(SyncAPIResource):
               assistant will be used.
 
           response_format: Specifies the format that the model must output. Compatible with
-              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and
-              all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
+              [GPT-4o](https://platform.openai.com/docs/models/gpt-4o),
+              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-turbo-and-gpt-4),
+              and all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
 
               Setting to `{ "type": "json_object" }` enables JSON mode, which guarantees the
               message the model generates is valid JSON.
@@ -231,6 +233,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -311,8 +315,9 @@ class Runs(SyncAPIResource):
               assistant will be used.
 
           response_format: Specifies the format that the model must output. Compatible with
-              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and
-              all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
+              [GPT-4o](https://platform.openai.com/docs/models/gpt-4o),
+              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-turbo-and-gpt-4),
+              and all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
 
               Setting to `{ "type": "json_object" }` enables JSON mode, which guarantees the
               message the model generates is valid JSON.
@@ -375,6 +380,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -455,8 +462,9 @@ class Runs(SyncAPIResource):
               assistant will be used.
 
           response_format: Specifies the format that the model must output. Compatible with
-              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and
-              all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
+              [GPT-4o](https://platform.openai.com/docs/models/gpt-4o),
+              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-turbo-and-gpt-4),
+              and all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
 
               Setting to `{ "type": "json_object" }` enables JSON mode, which guarantees the
               message the model generates is valid JSON.
@@ -518,6 +526,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -785,6 +795,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -875,6 +887,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -929,6 +943,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -983,6 +999,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1082,7 +1100,7 @@ class Runs(SyncAPIResource):
         if is_given(poll_interval_ms):
             extra_headers["X-Stainless-Custom-Poll-Interval"] = str(poll_interval_ms)
 
-        terminal_states = {"requires_action", "cancelled", "completed", "failed", "expired"}
+        terminal_states = {"requires_action", "cancelled", "completed", "failed", "expired", "incomplete"}
         while True:
             response = self.with_raw_response.retrieve(
                 thread_id=thread_id,
@@ -1105,7 +1123,7 @@ class Runs(SyncAPIResource):
                 else:
                     poll_interval_ms = 1000
 
-            time.sleep(poll_interval_ms / 1000)
+            self._sleep(poll_interval_ms / 1000)
 
     @overload
     def stream(
@@ -1121,6 +1139,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1174,6 +1194,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1227,6 +1249,8 @@ class Runs(SyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1618,6 +1642,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1695,8 +1721,9 @@ class AsyncRuns(AsyncAPIResource):
               assistant will be used.
 
           response_format: Specifies the format that the model must output. Compatible with
-              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and
-              all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
+              [GPT-4o](https://platform.openai.com/docs/models/gpt-4o),
+              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-turbo-and-gpt-4),
+              and all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
 
               Setting to `{ "type": "json_object" }` enables JSON mode, which guarantees the
               message the model generates is valid JSON.
@@ -1763,6 +1790,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1843,8 +1872,9 @@ class AsyncRuns(AsyncAPIResource):
               assistant will be used.
 
           response_format: Specifies the format that the model must output. Compatible with
-              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and
-              all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
+              [GPT-4o](https://platform.openai.com/docs/models/gpt-4o),
+              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-turbo-and-gpt-4),
+              and all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
 
               Setting to `{ "type": "json_object" }` enables JSON mode, which guarantees the
               message the model generates is valid JSON.
@@ -1907,6 +1937,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -1987,8 +2019,9 @@ class AsyncRuns(AsyncAPIResource):
               assistant will be used.
 
           response_format: Specifies the format that the model must output. Compatible with
-              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) and
-              all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
+              [GPT-4o](https://platform.openai.com/docs/models/gpt-4o),
+              [GPT-4 Turbo](https://platform.openai.com/docs/models/gpt-4-turbo-and-gpt-4),
+              and all GPT-3.5 Turbo models since `gpt-3.5-turbo-1106`.
 
               Setting to `{ "type": "json_object" }` enables JSON mode, which guarantees the
               message the model generates is valid JSON.
@@ -2050,6 +2083,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2317,6 +2352,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2407,6 +2444,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2461,6 +2500,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2515,6 +2556,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2616,7 +2659,7 @@ class AsyncRuns(AsyncAPIResource):
         if is_given(poll_interval_ms):
             extra_headers["X-Stainless-Custom-Poll-Interval"] = str(poll_interval_ms)
 
-        terminal_states = {"requires_action", "cancelled", "completed", "failed", "expired"}
+        terminal_states = {"requires_action", "cancelled", "completed", "failed", "expired", "incomplete"}
         while True:
             response = await self.with_raw_response.retrieve(
                 thread_id=thread_id,
@@ -2639,7 +2682,7 @@ class AsyncRuns(AsyncAPIResource):
                 else:
                     poll_interval_ms = 1000
 
-            time.sleep(poll_interval_ms / 1000)
+            await self._sleep(poll_interval_ms / 1000)
 
     @overload
     def stream(
@@ -2655,6 +2698,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2708,6 +2753,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",
@@ -2761,6 +2808,8 @@ class AsyncRuns(AsyncAPIResource):
         model: Union[
             str,
             Literal[
+                "gpt-4o",
+                "gpt-4o-2024-05-13",
                 "gpt-4-turbo",
                 "gpt-4-turbo-2024-04-09",
                 "gpt-4-0125-preview",

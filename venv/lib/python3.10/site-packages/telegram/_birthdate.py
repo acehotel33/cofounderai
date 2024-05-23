@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser Public License
 # along with this program.  If not, see [http://www.gnu.org/licenses/].
 """This module contains an object that represents a Telegram Birthday."""
-from datetime import datetime
+from datetime import date
 from typing import Optional
 
 from telegram._telegramobject import TelegramObject
@@ -26,7 +26,7 @@ from telegram._utils.types import JSONDict
 
 class Birthdate(TelegramObject):
     """
-    This object represents a user's birthday.
+    This object describes the birthdate of a user.
 
     Objects of this class are comparable in terms of equality. Two objects of this class are
     considered equal, if their :attr:`day`, and :attr:`month` are equal.
@@ -70,19 +70,23 @@ class Birthdate(TelegramObject):
 
         self._freeze()
 
-    def to_date(self, year: Optional[int] = None) -> datetime:
-        """Return the birthdate as a datetime object.
+    def to_date(self, year: Optional[int] = None) -> date:
+        """Return the birthdate as a date object.
+
+        .. versionchanged:: 21.2
+           Now returns a :obj:`datetime.date` object instead of a :obj:`datetime.datetime` object,
+           as was originally intended.
 
         Args:
             year (:obj:`int`, optional): The year to use. Required, if the :attr:`year` was not
                 present.
 
         Returns:
-            :obj:`datetime.datetime`: The birthdate as a datetime object.
+            :obj:`datetime.date`: The birthdate as a date object.
         """
         if self.year is None and year is None:
             raise ValueError(
                 "The `year` argument is required if the `year` attribute was not present."
             )
 
-        return datetime(year or self.year, self.month, self.day)  # type: ignore[arg-type]
+        return date(year or self.year, self.month, self.day)  # type: ignore[arg-type]
