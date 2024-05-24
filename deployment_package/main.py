@@ -10,6 +10,7 @@ import re
 import time
 import asyncio
 
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
@@ -53,6 +54,7 @@ def lambda_handler(event, context):
         app = initialize_application()
         loop = asyncio.get_event_loop()
         loop.run_until_complete(handle_update(app, update))
+        app.run_polling()
 
     run()
 
