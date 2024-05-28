@@ -9,66 +9,47 @@ import backoff
 import re
 import time
 import asyncio
-
+import httpx
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 openai_client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
 
-# Initialize the application outside the handler to avoid re-initializing on every request
-application = None
-
-def initialize_application():
-    """Initialize the application and return it."""
-    global application
-    if application is None:
-        logging.info("Initializing application")
-        application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        application.add_error_handler(error_handler)
-
-        # Initialize the application synchronously
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(application.initialize())
-        logging.info("Application initialized")
-    return application
+application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
 
 def lambda_handler(event, context):
-    """AWS Lambda handler function."""
-    logging.info("Received event: %s", json.dumps(event))
+    loop = asyncio.get_event_loop()
+    return loop.run_until_complete(main(event, context))
 
-    if 'body' not in event:
-        logging.error("Missing body in event")
+async def main(event, context):
+    # Add conversation, command, and any other handlers
+    logging.info("Adding application handlers")
+    
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("erase", erase))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # application.add_error_handler(error_handler)
+    
+    try:    
+        await application.initialize()
+        await application.process_update(
+            Update.de_json(json.loads(event["body"]), application.bot)
+        )
+    
         return {
-            'statusCode': 400,
-            'body': json.dumps('Bad Request: Missing body in event')
+            'statusCode': 200,
+            'body': 'Success'
         }
 
-    update = Update.de_json(json.loads(event['body']), None)
-
-    def run():
-        logging.info("Running function")
-        app = initialize_application()
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(handle_update(app, update))
-        app.run_polling()
-
-    run()
-
-    return {
-        'statusCode': 200,
-        'body': json.dumps('OK')
-    }
-
-async def handle_update(application, update):
-    """Handle the update in an async context."""
-    logging.info("Handling update")
-    await application.process_update(update)
-    logging.info("Update handled")
-
+    except Exception as exc:
+        logging.error(f'Error during processing: {exc}', exc_info=True)
+        return {
+            'statusCode': 500,
+            'body': 'Failure'
+        }
 
 
 SYSTEM_PROMPT = {
@@ -91,6 +72,7 @@ SYSTEM_PROMPT = {
         "- Staying competitive in the market\n\n"
         
         "**Approach:**\n"
+        "- For every prompt received from the user, you first figure out which relevant industry professional / figure of authority and expertise to position yourself as, and then proceed with crafting the response through their lense"
         "- You approach all business tasks and activities through reproducible and implementable systems (any business project's success is dependent on the quality of the systems in place at all levels).\n\n"
         "- When answering a question, instead of laying out all of the possibilities and covering a wide range of topics, try to choose the most critical"
         
@@ -203,43 +185,50 @@ async def echo(update: Update, context: CallbackContext):
     await update.message.reply_text(update.message.text)
 
 
-# Dictionary to store message buffers and timers for each chat
-message_buffers = {}
 
-async def process_messages(chat_id, context):
-    # Combine all messages in the buffer
-    full_message = ' '.join(message_buffers[chat_id]['buffer'])
-    # Clear the buffer for future messages
-    message_buffers[chat_id]['buffer'].clear()
+@backoff.on_exception(backoff.expo, (openai.APIError, openai.RateLimitError), max_tries=5)
+async def handle_message(update: Update, context: CallbackContext):
+    chat_id = update.effective_chat.id
+    text = update.message.text.strip()
 
-    # Existing logic, now using full_message as the input
-    user_messages = [{'role': 'user', 'content': full_message}]
-    history = [SYSTEM_PROMPT] + get_conversation_history(chat_id) + user_messages
+    if not text:
+        return  # Ignore empty messages
 
-    try:
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=history
-        )
-        gpt_response = response.choices[0].message.content
-        save_message(chat_id, 'assistant', gpt_response)
+    # Save the incoming message as usual
+    save_message(chat_id, 'user', text)
 
-        await summarize_and_archive_messages(chat_id)
+    # Get conversation history
+    history = get_conversation_history(chat_id)
+    
+    # Append the new message to history
+    history.append({"role": "user", "content": text})
+    
+    # Send to OpenAI API and get response
+    response = openai_client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=history
+    )
+    gpt_response = response.choices[0].message.content
+    
+    # Save the assistant's response
+    save_message(chat_id, 'assistant', gpt_response)
+    
+    # Summarize and archive messages if needed
+    await summarize_and_archive_messages(chat_id)
 
-        # Enhanced regex to split on colons followed by bullet points on a new line
-        parts = re.split(r'(?<=:)\s*(?=\n[-*](?![*]))|(?<=\n)\s*\n', gpt_response)
+    await context.bot.send_message(chat_id=chat_id, text=gpt_response)
 
-        for part in parts:
-            if part.strip():
-                # Use HTML formatting for bold
-                formatted_part = format_bold_text(part)
-                await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
-                # Delay for 2 seconds before sending the next part
-                await asyncio.sleep(3)
+    
+    # # Enhanced regex to split on colons followed by bullet points on a new line
+    # parts = re.split(r'(?<=:)\s*(?=\n[-*](?![*]))|(?<=\n)\s*\n', gpt_response)
 
-    except Exception as e:
-        logging.error("Failed to process messages: %s", str(e))
-        await context.bot.send_message(chat_id=chat_id, text="An error occurred. Please try again later.")
+    # for part in parts:
+    #     if part.strip():
+    #         # Use HTML formatting for bold
+    #         formatted_part = format_bold_text(part)
+    #         await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
+    #         # Delay for 3 seconds before sending the next part
+    #         await asyncio.sleep(3)
 
 
 def format_bold_text(text):
@@ -254,36 +243,6 @@ def format_bold_text(text):
     return text
 
 
-def reset_timer(chat_id, context):
-    if chat_id in message_buffers and message_buffers[chat_id]['timer'] is not None:
-        message_buffers[chat_id]['timer'].cancel()
-    message_buffers[chat_id]['timer'] = asyncio.get_event_loop().call_later(
-        1,  # delay in seconds
-        lambda: asyncio.create_task(process_messages(chat_id, context))
-    )
-
-
-@backoff.on_exception(backoff.expo, (openai.APIError, openai.RateLimitError), max_tries=5)
-async def handle_message(update: Update, context: CallbackContext):
-    chat_id = update.effective_chat.id
-    text = update.message.text.strip()
-
-    if not text:
-        return  # Ignore empty messages
-
-    if chat_id not in message_buffers:
-        message_buffers[chat_id] = {'buffer': [], 'timer': None}
-
-    # Append new message to buffer
-    message_buffers[chat_id]['buffer'].append(text)
-
-    # Reset or start the timer
-    reset_timer(chat_id, context)
-
-    # Save the incoming message as usual
-    save_message(chat_id, 'user', text)
-
-
 async def error_handler(update, context):
     """Log the error and send a telegram message to notify the developer."""
     logging.error('Update "%s" caused error "%s"', update, context.error)
@@ -294,31 +253,11 @@ async def error_handler(update, context):
         logging.error("Failed to send error message: %s", str(e))
 
 
-
-async def fallback_message(update: Update, context: CallbackContext):
-    logging.info("Fallback triggered, indicating an issue with the conversation flow.")
-    # Sending a generic error message to the user
-    await update.message.reply_text("Something went wrong while trying to process your request. Please try again.")
-    return ConversationHandler.END
-
-
-
-def main():
-    """Start the bot."""
-    token = os.getenv('TELEGRAM_TOKEN')
-    app = Application.builder().token(token).build()
-
-    logging.info("Adding application handlers")
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_command))
-    app.add_handler(CommandHandler("erase", erase))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    app.add_error_handler(error_handler)
-    logging.info("Starting polling")
-    app.run_polling()
-
-
+# async def fallback_message(update: Update, context: CallbackContext):
+#     logging.info("Fallback triggered, indicating an issue with the conversation flow.")
+#     # Sending a generic error message to the user
+#     await update.message.reply_text("Something went wrong while trying to process your request. Please try again.")
+#     return ConversationHandler.END
 
 
 if __name__ == '__main__':
