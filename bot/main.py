@@ -71,7 +71,7 @@ SYSTEM_PROMPT = {
         "- Staying competitive in the market\n\n"
         
         "**Approach:**\n"
-        "- For every prompt received from the user, you first figure out which relevant industry professional / figure of authority and expertise to position yourself as, and then proceed with crafting the response through their lense"
+        "- For every prompt received from the user, you first figure out which relevant industry professional / figure of authority would have the most expertise; you then position yourself as them, and only then proceed with crafting the response through their lense"
         "- You approach all business tasks and activities through reproducible and implementable systems (any business project's success is dependent on the quality of the systems in place at all levels).\n\n"
         "- When answering a question, instead of laying out all of the possibilities and covering a wide range of topics, try to choose the most critical"
         
@@ -197,10 +197,9 @@ async def handle_message(update: Update, context: CallbackContext):
     save_message(chat_id, 'user', text)
 
     # Get conversation history
-    history = get_conversation_history(chat_id)
-    
-    # Append the new message to history
-    history.append({"role": "user", "content": text})
+
+    user_messages = [{'role': 'user', 'content': text}]
+    history = [SYSTEM_PROMPT] + get_conversation_history(chat_id) + user_messages
     
     # Send to OpenAI API and get response
     response = openai_client.chat.completions.create(
@@ -215,31 +214,17 @@ async def handle_message(update: Update, context: CallbackContext):
     # Summarize and archive messages if needed
     await summarize_and_archive_messages(chat_id)
 
-    await context.bot.send_message(chat_id=chat_id, text=gpt_response)
+
+    parts = re.split(r'(?<=\?)\s+|(?<=\n)\s*\n|\n(?=[^•\n]*$)', gpt_response)
+    for part in parts:
+        if part.strip():
+            formatted_part = format_bold_text(part)
+            await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
 
     
-    # # Enhanced regex to split on colons followed by bullet points on a new line
-    # parts = re.split(r'(?<=:)\s*(?=\n[-*](?![*]))|(?<=\n)\s*\n', gpt_response)
-
-    # for part in parts:
-    #     if part.strip():
-    #         # Use HTML formatting for bold
-    #         formatted_part = format_bold_text(part)
-    #         await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
-    #         # Delay for 3 seconds before sending the next part
-    #         await asyncio.sleep(3)
-
-
 def format_bold_text(text):
-    """Toggle between adding opening and closing bold tags for each occurrence of '**' in the text."""
-    toggle = True  # Start by opening a tag
-    while '**' in text:
-        if toggle:
-            text = text.replace('**', '<b>', 1)
-        else:
-            text = text.replace('**', '</b>', 1)
-        toggle = not toggle
-    return text
+    """Replace '**' around words, phrases, or sentences with the Telegram Bot API's bold formatting."""
+    return re.sub(r'\*\*(.*?)\*\*', lambda match: f'<b>{match.group(1)}</b>', text)
 
 
 async def error_handler(update, context):
