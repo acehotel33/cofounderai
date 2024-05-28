@@ -215,31 +215,32 @@ async def handle_message(update: Update, context: CallbackContext):
     # Summarize and archive messages if needed
     await summarize_and_archive_messages(chat_id)
 
-    await context.bot.send_message(chat_id=chat_id, text=gpt_response)
+    # await context.bot.send_message(chat_id=chat_id, text=gpt_response)
 
+    parts = re.split(r'(?<=\?)\s+|(?<=\n)\s*\n|\n(?=[^•\n]*$)', gpt_response)
+    for part in parts:
+        if part.strip():
+            await context.bot.send_message(chat_id=chat_id, text=part)
     
-    # # Enhanced regex to split on colons followed by bullet points on a new line
-    # parts = re.split(r'(?<=:)\s*(?=\n[-*](?![*]))|(?<=\n)\s*\n', gpt_response)
-
+    # Enhanced regex to split on colons followed by bullet points on a new line
+    # parts = re.split(r'(?<=\?)\s+|(?<=\n)\s*\n|\n(?=[^•\n]*$)', gpt_response)
     # for part in parts:
     #     if part.strip():
     #         # Use HTML formatting for bold
     #         formatted_part = format_bold_text(part)
     #         await context.bot.send_message(chat_id=chat_id, text=formatted_part, parse_mode='HTML')
-    #         # Delay for 3 seconds before sending the next part
-    #         await asyncio.sleep(3)
 
 
-def format_bold_text(text):
-    """Toggle between adding opening and closing bold tags for each occurrence of '**' in the text."""
-    toggle = True  # Start by opening a tag
-    while '**' in text:
-        if toggle:
-            text = text.replace('**', '<b>', 1)
-        else:
-            text = text.replace('**', '</b>', 1)
-        toggle = not toggle
-    return text
+# def format_bold_text(text):
+#     """Toggle between adding opening and closing bold tags for each occurrence of '**' in the text."""
+#     toggle = True  # Start by opening a tag
+#     while '**' in text:
+#         if toggle:
+#             text = text.replace('**', '<b>', 1)
+#         else:
+#             text = text.replace('**', '</b>', 1)
+#         toggle = not toggle
+#     return text
 
 
 async def error_handler(update, context):
