@@ -198,10 +198,9 @@ async def handle_message(update: Update, context: CallbackContext):
     save_message(chat_id, 'user', text)
 
     # Get conversation history
-    history = get_conversation_history(chat_id)
-    
-    # Append the new message to history
-    history.append({"role": "user", "content": text})
+
+    user_messages = [{'role': 'user', 'content': text}]
+    history = [SYSTEM_PROMPT] + get_conversation_history(chat_id) + user_messages
     
     # Send to OpenAI API and get response
     response = openai_client.chat.completions.create(
