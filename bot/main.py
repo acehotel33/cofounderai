@@ -1,5 +1,6 @@
 import logging
 import openai
+from openai import AsyncOpenAI
 import os
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -13,7 +14,7 @@ import asyncio
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-openai_client = openai.OpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
+openai_client = AsyncOpenAI(api_key=os.getenv('COFOUNDERAI_GPT_API_KEY'))
 
 application = Application.builder().token(os.getenv('TELEGRAM_TOKEN')).build()
 
@@ -119,17 +120,17 @@ async def start(update: Update, context: CallbackContext):
     logging.info(f"Start command called by user: {update.effective_user.id} in chat: {update.effective_chat.id}")
 
     user_id = update.effective_user.id
-    current_time = time.time()
+    # current_time = time.time()
 
-    # Check if the command was issued recently
-    if user_id in last_command_time:
-        elapsed_time = current_time - last_command_time[user_id]
-        if elapsed_time < 6:  # 6 seconds debounce period
-            logging.info(f"Debounced start command for user: {user_id}")
-            return  # Skip processing if the command was recently executed
+    # # Check if the command was issued recently
+    # if user_id in last_command_time:
+    #     elapsed_time = current_time - last_command_time[user_id]
+    #     if elapsed_time < 6:  # 6 seconds debounce period
+    #         logging.info(f"Debounced start command for user: {user_id}")
+    #         return  # Skip processing if the command was recently executed
 
-    # Update the last command time
-    last_command_time[user_id] = current_time
+    # # Update the last command time
+    # last_command_time[user_id] = current_time
 
     if 'history' not in context.chat_data:
         logging.info("Initializing conversation history for chat")
@@ -202,7 +203,7 @@ async def handle_message(update: Update, context: CallbackContext):
     history = [SYSTEM_PROMPT] + get_conversation_history(chat_id) + user_messages
     
     # Send to OpenAI API and get response
-    response = openai_client.chat.completions.create(
+    response = await openai_client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=history
     )
