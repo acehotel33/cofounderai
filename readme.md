@@ -25,8 +25,7 @@ The Telegram AI CoFounder Bot utilizes OpenAI's GPT-3.5-turbo model to engage us
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/telegram-ai-cofounder-bot.git
-   cd telegram-ai-cofounder-bot
+   git clone https://github.com/acehotel33/cofounderai 
    ```
 2. Install the required packages:
    ```
@@ -54,8 +53,8 @@ The bot will guide you through a series of questions to understand your business
 /erase: Erase your chat history.
 
 ## Code Structure
-main.py: Contains the main bot logic, handlers, and conversation management.
-db.py: Handles MongoDB interactions for storing and retrieving chat history.
+* main.py: Contains the main bot logic, handlers, and conversation management.
+* db.py: Handles MongoDB interactions for storing and retrieving chat history.
 
 ## Contributing
 Contributions are welcome! If you have suggestions for improvements or features, please open an issue or submit a pull request.
